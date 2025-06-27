@@ -26,6 +26,7 @@ def create_tables():
 );
         '''
     )
+    conn.commit()
 
 def register_user(username, group_id, goals):
     cursor.execute('''

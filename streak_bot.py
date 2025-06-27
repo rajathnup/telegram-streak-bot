@@ -10,13 +10,26 @@ from datetime import datetime
 import requests
 import random
 
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 load_dotenv()
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+TELEGRAM_GROUP_ID = int(os.getenv('TELEGRAM_GROUP_ID'))
+ALLOWED_GROUP_ID = TELEGRAM_GROUP_ID
 
 updater = Updater(token=TELEGRAM_BOT_TOKEN, use_context=True)
 dispatcher = updater.dispatcher
 
+def is_group_allowed(update):
+    return update.effective_chat.id == ALLOWED_GROUP_ID
+
+def restrict_group(func):
+    def wrapper(update, context, *args, **kwargs):
+        if not is_group_allowed(update):
+            update.message.reply_text("You are not authorized to use this bot here.")
+            return
+        return func(update, context, *args, **kwargs)
+    return wrapper
 
 def fetch_motivational_quote():
     try:
@@ -33,6 +46,7 @@ def fetch_motivational_quote():
 Starting from the below comment, bot handlers are present until the next section of the code.
 '''
 
+@restrict_group
 def register(update, context):
     username = update.effective_user.username
     group_id = update.effective_chat.id
@@ -46,6 +60,7 @@ def register(update, context):
     except:
         update.message.reply_text("Please use the format: /register 1 2 3 4 5 6 7")
 
+@restrict_group
 def modify(update, context):
     username = update.effective_user.username
     group_id = update.effective_chat.id
@@ -59,6 +74,7 @@ def modify(update, context):
     except:
         update.message.reply_text("Please use the format: /modify 1 2 3 4 5 6 7")
 
+@restrict_group
 def task_logger(update, context):
     if update.message.text.strip() == '+1':
         username = update.effective_user.username
@@ -70,6 +86,7 @@ def task_logger(update, context):
         else:
             update.message.reply_text("You need to register your goals first using /register.")
 
+@restrict_group
 def optout(update, context):
     username = update.effective_user.username
     group_id = update.effective_chat.id
@@ -80,6 +97,7 @@ def optout(update, context):
     except:
         update.message.reply_text("Please use the format: /optout <number_of_days>")
 
+@restrict_group
 def optin(update, context):
     username = update.effective_user.username
     group_id = update.effective_chat.id
@@ -87,6 +105,7 @@ def optin(update, context):
     db.apply_opt_in(username, group_id)
     update.message.reply_text("Hurrayy!!! You are now back in tracking!")
 
+@restrict_group
 def help_command(update, context):
     help_text = """
 Available Commands:
@@ -107,7 +126,6 @@ dispatcher.add_handler(CommandHandler('optin', optin))
 dispatcher.add_handler(CommandHandler('help', help_command))
 dispatcher.add_handler(MessageHandler(Filters.text & (~Filters.command), task_logger))
 
-from telegram import ParseMode
 
 def morning_reminder(context):
     group_id = context.job.context
@@ -146,9 +164,6 @@ def midnight_job(context):
 
 
 scheduler = BackgroundScheduler()
-
-# Replace with your actual group ID
-TELEGRAM_GROUP_ID = int(os.getenv('TELEGRAM_GROUP_ID'))
 
 # Schedule morning reminders at 6 AM every day
 scheduler.add_job(morning_reminder, 'cron', hour=6, minute=0, args=[updater.bot], kwargs={'context': TELEGRAM_GROUP_ID}, timezone=timezone('Asia/Kolkata'))
